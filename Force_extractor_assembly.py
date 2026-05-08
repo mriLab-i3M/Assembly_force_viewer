@@ -245,9 +245,10 @@ for step_folder in step_folders_sorted:
             Fy_r = Fy[idx].sum()
             Fz_r = Fz[idx].sum()
 
-            Tx_r = Tx[idx].sum()
-            Ty_r = Ty[idx].sum()
-            Tz_r = Tz[idx].sum()
+            # Cálculo de torques usando posiciones y fuerzas por cubo
+            Tx_r = (Fy[idx] * z[idx] + Fz[idx] * y[idx]).sum()
+            Ty_r = (Fx[idx] * z[idx]).sum()
+            Tz_r = (Fx[idx] * y[idx]).sum()
 
             normF_r = np.sqrt(Fx_r**2 + Fy_r**2 + Fz_r**2)
             normT_r = np.sqrt(Tx_r**2 + Ty_r**2 + Tz_r**2)
@@ -298,25 +299,33 @@ for step_folder in step_folders_sorted:
                             base_output + "_NormT.png",component_name="normT",is_torque=True)
 
 # ============================================================
-# WORST CASE GLOBAL
+# WORST CASE GLOBAL - MIN/MAX PER RING Y PER CUBE
 # ============================================================
 
-print("\nCalculando Worst Cases globales...")
+print("\nCalculando Min/Max globales...")
 
 components = ["Fx","Fy","Fz","normF","Tx","Ty","Tz","normT"]
 worst_results = []
 
 for component in components:
 
-    worst_sum_value = -np.inf
-    worst_sum_step = None
-    worst_sum_ring = None
+    # PerRing: track min/max values and their locations
+    ring_min_value = np.inf
+    ring_min_step = None
+    ring_min_ring = None
+    
+    ring_max_value = -np.inf
+    ring_max_step = None
+    ring_max_ring = None
 
-    worst_cube_value = -np.inf
-    worst_cube_step = None
-
-    worst_mount_value = -np.inf
-    worst_mount_step = None
+    # PerCube: track min/max values and their locations
+    cube_min_value = np.inf
+    cube_min_step = None
+    cube_min_ring = None
+    
+    cube_max_value = -np.inf
+    cube_max_step = None
+    cube_max_ring = None
 
     for step_folder in step_folders_sorted:
 
@@ -330,6 +339,7 @@ for component in components:
 
         Fx, Fy, Fz = data[:,1], data[:,2], data[:,3]
         Tx, Ty, Tz = data[:,4], data[:,5], data[:,6]
+        x = data[:,7]
 
         if component == "Fx": values = Fx
         elif component == "Fy": values = Fy
@@ -343,19 +353,27 @@ for component in components:
             values = np.sqrt(Tx**2 + Ty**2 + Tz**2)
 
         # =========================
-        # PER CUBE
+        # PER CUBE (individual magnet values)
         # =========================
-        max_cube = np.abs(values).max()
-
-        if max_cube > worst_cube_value:
-            worst_cube_value = max_cube
-            worst_cube_step = base_name
+        abs_values = np.abs(values)
+        
+        cube_min = abs_values.min()
+        cube_max = abs_values.max()
+        
+        if cube_min < cube_min_value:
+            cube_min_value = cube_min
+            cube_min_step = base_name
+            cube_min_ring = np.argmin(abs_values) + 1  # magnet index
+        
+        if cube_max > cube_max_value:
+            cube_max_value = cube_max
+            cube_max_step = base_name
+            cube_max_ring = np.argmax(abs_values) + 1  # magnet index
 
         # =========================
         # SUM PER RING
         # =========================
         tol = 1e-6
-        x = data[:,7]
         x_round = np.round(x / tol) * tol
         unique_x = np.unique(x_round)
         ring = np.array([np.where(unique_x == xi)[0][0] + 1 for xi in x_round])
@@ -396,73 +414,81 @@ for component in components:
             elif component == "normT":
                 sum_val = np.sqrt(Tx_r**2 + Ty_r**2 + Tz_r**2)
         
-            if sum_val > worst_sum_value:
-                worst_sum_value = sum_val
-                worst_sum_step = base_name
-                worst_sum_ring = r
-
-        # =========================
-        # MOUNTING RING (última fila tabla)
-        # =========================
-
-        table_path = os.path.join(
-            step_folder,
-            base_name + "_TableForceTorqueSum_perRing.txt"
-        )
-
-        if os.path.exists(table_path):
-
-            df = pd.read_csv(table_path, sep="\t", decimal=",")
-
-            last_row = df.iloc[-1]
-
-            col_map = {
-                "Fx": "Fx_sum",
-                "Fy": "Fy_sum",
-                "Fz": "Fz_sum",
-                "normF": "normF",
-                "Tx": "Tx_sum",
-                "Ty": "Ty_sum",
-                "Tz": "Tz_sum",
-                "normT": "normT"
-            }
-
-            value = abs(float(last_row[col_map[component]]))
-
-            if value > worst_mount_value:
-                worst_mount_value = value
-                worst_mount_step = base_name
+            # Track min/max
+            if sum_val < ring_min_value:
+                ring_min_value = sum_val
+                ring_min_step = base_name
+                ring_min_ring = r
+            
+            if sum_val > ring_max_value:
+                ring_max_value = sum_val
+                ring_max_step = base_name
+                ring_max_ring = r
 
     worst_results.append([
         component,
-        worst_sum_step,
-        worst_sum_ring,
-        worst_sum_value,
-        worst_cube_step,
-        worst_cube_value,
-        worst_mount_step,
-        worst_mount_value
+        ring_min_step,
+        ring_min_ring if ring_min_ring is not None else "",
+        f"{ring_min_value:g}",
+        ring_max_step,
+        ring_max_ring if ring_max_ring is not None else "",
+        f"{ring_max_value:g}",
+        cube_min_step,
+        cube_min_ring if cube_min_ring is not None else "",
+        f"{cube_min_value:g}",
+        cube_max_step,
+        cube_max_ring if cube_max_ring is not None else "",
+        f"{cube_max_value:g}"
     ])
 
 # =============================
 # GUARDAR TABLA GLOBAL
 # =============================
 
-global_worst_path = os.path.join(base_folder, "WorstCases_Global.txt")
+global_worst_path = os.path.join(base_folder, "Worst_casesglobal.txt")
 
 with open(global_worst_path, "w", encoding="utf-8") as f:
 
     f.write(
         "Component\t"
-        "SumPerRing_Step\tSumPerRing_Ring\tSumPerRing_Value\t"
-        "PerCube_Step\tPerCube_Value\t"
-        "MountingRing_Step\tMountingRing_Value\n"
+        "Step_PerRing\tRing\tMin_PerRing\tMax_PerRing\t"
+        "Step_PerCube\tRing\tMin_PerCube\tMax_PerCube\n"
     )
 
     for row in worst_results:
-        f.write("\t".join(str(x) for x in row) + "\n")
+        # Extract values from row
+        component = row[0]
+        ring_min_step = row[1]
+        ring_min_ring = row[2]
+        ring_min_value = row[3]
+        ring_max_step = row[4]
+        ring_max_ring = row[5]
+        ring_max_value = row[6]
+        cube_min_step = row[7]
+        cube_min_ring = row[8]
+        cube_min_value = row[9]
+        cube_max_step = row[10]
+        cube_max_ring = row[11]
+        cube_max_value = row[12]
+        
+        # Create output row with desired column structure
+        # For PerRing: use max step (you can modify to use min if preferred)
+        # For PerCube: use max step (you can modify to use min if preferred)
+        output_row = [
+            component,
+            ring_max_step,
+            ring_max_ring,
+            ring_min_value,
+            ring_max_value,
+            cube_max_step,
+            cube_max_ring,
+            cube_min_value,
+            cube_max_value
+        ]
+        
+        f.write("\t".join(str(x) for x in output_row) + "\n")
 
-print(f"Worst cases guardado en: {global_worst_path}")
+print(f"Tabla global guardada en: {global_worst_path}")
 print("\nAnalisis completado correctamente.")
 
 if not include_lids:

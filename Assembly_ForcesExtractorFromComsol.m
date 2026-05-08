@@ -63,6 +63,14 @@ for i = 1:numel(d)
         i, d{i}, char(model.result().dataset(d{i}).label), sol);
 end
 
+%% To see all available solutions
+disp('---- SOLUCIONES DISPONIBLES ----')
+s = cell(model.sol().tags);
+for i = 1:numel(s)
+    fprintf('[%d] %s  |  %s\n', ...
+        i, s{i}, char(model.sol(s{i}).label()));
+end
+
 
  
 %% In case that there are more than one solutions, select the dataset of interest. If there is only one: dset1. This must be checked in the Comsol file.
