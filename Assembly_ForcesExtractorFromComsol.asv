@@ -81,7 +81,7 @@ datasetTag= 'dset1'
 Fx = mphglobal(model,'comp1.mfnc.Forcex_12', 'dataset', datasetTag);
 disp(Fx);
 
-fileID = fopen(['Z:\Projects\KeplerHead\Magnet\COMSOL_simulations\Kepler_900Cubes_30mm\Fuerzas_Kepler_1e5iterLINEAR_from_halbach_2pi_4553ppms_N48Linear_Br1_4_mur_1_05.txt'],'w');
+fileID = fopen(['Z:\Projects\KeplerHead\Magnet\COMSOL_simulations\Kepler_900Cubes_30mm\Kepler_1e5iterLINEAR_from_halbach_2pi_4553ppms.txt\Fuerzas_linearKepler_1.9cm_3layers_N48Linear_Br1_4_mur_1_05.txt'],'w');
 
 fprintf(fileID, 'Magnet number\t');
 fprintf(fileID, 'Fx\tFy\tFz\t');
