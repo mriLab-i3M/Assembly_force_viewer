@@ -8,6 +8,8 @@ import matplotlib.pyplot as plt
 from matplotlib.lines import Line2D
 import pandas as pd
 
+from custom_lids import run_custom_lids_analysis
+
 # ==============================
 # CONFIGURACION
 # ==============================
@@ -18,11 +20,22 @@ _parser.add_argument("--magnet_info", required=True,
                      help="System name shown in plot titles")
 _parser.add_argument("--include_lids", action="store_true",
                      help="Include per-lid analysis and plots")
+_parser.add_argument("--custom_lids_config",
+                     help="Path to a custom lids JSON file defining divider lines")
 _args = _parser.parse_args()
 
 base_folder = _args.base_folder
 Magnet_info = _args.magnet_info
 include_lids = _args.include_lids
+custom_lids_config = _args.custom_lids_config
+
+# El flujo de Custom Lids es independiente del analisis estandar: solo escribe
+# dentro de las subcarpetas <Step>/<N>Lids_.../ y no toca la raiz de cada Step.
+if custom_lids_config:
+    print(f"\nAnalisis de custom lids: {custom_lids_config}")
+    run_custom_lids_analysis(base_folder, Magnet_info, custom_lids_config)
+    print("\nAnalisis de custom lids completado.")
+    sys.exit(0)
 
 # ==============================
 # DETECTAR STEP MÁS ALTO
